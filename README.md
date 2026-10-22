@@ -1,8 +1,10 @@
 # cat.com Playwright demo
 
-A small Playwright + TypeScript suite that navigates the public Caterpillar website
-(www.cat.com) using the **Page Object Model**, **custom fixtures** and a reusable
-**Cat ID (Azure AD B2C) sign-in** saved as storage state.
+A small Playwright + TypeScript suite against the public Caterpillar website (www.cat.com):
+**Page Object Model**, **custom fixtures**, a **Cucumber/BDD** layer, **API contract tests** on the
+JSON feed behind the equipment catalogue, **network mocking** of that feed, **REST / role-based
+access (RBAC) tests** against a local mock API, and a reusable **Cat ID (Azure AD B2C) sign-in**
+saved as storage state.
 
 Built by Sandeep Saladi as a sample of how I structure UI automation.
 
@@ -13,6 +15,9 @@ Built by Sandeep Saladi as a sample of how I structure UI automation.
 | `tests/public/navigation.spec.ts` | Home page loads; Home -> Equipment catalogue (25 families rendered client-side); data-driven journeys into Excavators (and its Mini Excavators sub-category), Dozers, Off-Highway Trucks and Motor Graders; Financing and Merchandise pages; Sign In hands off to Cat ID |
 | `tests/auth.setup.ts` | Signs in once through Cat ID and saves the session to `.auth/user.json` |
 | `tests/authenticated/my-account.spec.ts` | Signed-in user can open My Account and its sections; session survives navigation |
+| `tests/api/catalogue-feed.spec.ts` | Contract checks on the live catalogue JSON feed: status, content type, shape, required fields, unique ids; the grid renders every feed family in feed order (first 24 visible); optional crawl of every family link; a known broken link tracked with `test.fail()` |
+| `tests/mocked/catalogue-mocks.spec.ts` | Real equipment page with the feed intercepted by `page.route()`: stubbed data, patched live response, 30 families (paging), empty feed, HTTP 500/503/404, network failure, slow response - and no uncaught page errors |
+| `tests/rbac/fleet-api.spec.ts` | REST + RBAC tests on a local **mock** fleet API (`mock-api/fleetApi.ts`): 401s, a role x action permission matrix, field-level access, validation (400), 404/405, and an end-to-end create/read/update/filter/delete flow |
 
 ### BDD (Gherkin) layer
 
@@ -30,6 +35,25 @@ extends playwright-bdd's `test` with the same `pageFixtures` used by the plain s
 small per-scenario state object for the current equipment family. `bddgen` compiles the
 features into `.features-gen/` (git-ignored) before each run.
 
+### API, mocking and RBAC
+
+**Catalogue feed (live).** The equipment grid is rendered from one JSON call,
+`.../productfamilycards.feed.json`, found by watching the page's network traffic.
+`src/api/catalogueFeed.ts` wraps it. cat.com's CDN fingerprints non-browser HTTP clients and answers
+Playwright's `request` fixture with **403** even with the browser's cookies, so the client sends its
+requests with `fetch()` from inside a cat.com page (`catalogueFeed` fixture). Against an internal
+test environment the same client would just use `request`.
+
+**Mocked feed.** `src/mocks/catalogueMock.ts` (`catalogueMock` fixture) can `stub()` a fixed feed,
+`patch()` the live response, `fail()` with a status, `abort()` the request or `delay()` it. Register
+the mock before navigating.
+
+**RBAC mock API.** cat.com has no public API with roles, so `mock-api/fleetApi.ts` is a small
+self-contained REST service - a **mock**, loosely modelled on a mining fleet API, not a Caterpillar
+or MineStar API. Roles: `admin` (everything), `operator` (read + change status), `viewer` (read only,
+serial numbers hidden). Each test starts its own instance on a free port with fresh data
+(`src/fixtures/fleetApi.ts`), and `as('viewer')` returns an API client with that role's token.
+
 ## Structure
 
 ```
@@ -44,14 +68,20 @@ src/
   pages/MyAccountPage.ts
   fixtures/pageFixtures.ts      # page-object fixtures shared by specs and BDD steps
   fixtures/test.ts              # Playwright test extended with the fixtures
+  fixtures/fleetApi.ts          # starts the mock API per test; as(role) API clients
+  api/catalogueFeed.ts          # client + types for the live catalogue JSON feed
+  mocks/catalogueMock.ts        # page.route() helpers: stub, patch, fail, abort, delay
   data/equipment.ts             # data for the parameterised journeys
   config/paths.ts               # storage state location
+mock-api/
+  fleetApi.ts                   # local mock REST API with roles (for RBAC tests)
 tests/
   public/  authenticated/  auth.setup.ts
+  api/  mocked/  rbac/
 features/
   *.feature                     # Gherkin scenarios
   steps/                        # step definitions + BDD fixtures
-playwright.config.ts            # projects: public, bdd, setup -> authenticated
+playwright.config.ts            # projects: public, api, mocked, rbac, bdd, setup -> authenticated
 ```
 
 ## How to run the tests
@@ -85,6 +115,9 @@ npx playwright install chromium      # downloads the Chromium browser
 | --- | --- |
 | Watch the tests in a visible browser (public + BDD, one at a time) | `npm run test:headed` |
 | Public navigation specs only (headless) | `npm run test:public` |
+| Catalogue feed API contract tests | `npm run test:api` |
+| Mocked-feed UI tests | `npm run test:mocked` |
+| REST / RBAC tests on the local mock API (no browser, ~2 s) | `npm run test:rbac` |
 | Cucumber / BDD scenarios only | `npm run test:bdd` |
 | Everything (public + BDD + authenticated, if set up) | `npm test` |
 | Signed-in tests only | `npm run test:auth` |
@@ -119,6 +152,13 @@ npx playwright test tests/public/navigation.spec.ts
 ```
 
 Add `--headed` to watch any of these, or `--workers=1` to run them one at a time.
+
+**Crawl every equipment family link** (off by default - about 25 requests, which can trip
+cat.com's rate limiting):
+
+```bash
+CHECK_ALL_LINKS=1 npm run test:api            # PowerShell: $env:CHECK_ALL_LINKS=1; npm.cmd run test:api
+```
 
 ### 5. Debugging
 
@@ -191,6 +231,7 @@ a saved session exist, the signed-in projects are simply not created.
 | `Project(s) "authenticated" not found` | Create `.env` (Option A) or `.auth/user.json` (Option B) first |
 | Signed-in tests land on `signin.cat.com` | The saved session is missing or expired: delete `.auth/user.json` and create it again |
 | `page.goto` timeouts or `ERR_CONNECTION_RESET` | cat.com bot protection: keep `channel: 'chromium'` and the Desktop Chrome device profile, and avoid running many workers |
+| Every cat.com test fails; screenshot shows **Access Denied** (errors.edgesuite.net) | cat.com's CDN has temporarily blocked your IP after too many requests. Wait 15-30 minutes, then run fewer tests at once (`--workers=1`). The `rbac` tests don't touch cat.com and still run |
 | `Missing step definition` in BDD | Run `npx bddgen` and check the step text matches `features/steps/navigation.steps.ts` |
 
 ## Things worth knowing about cat.com
@@ -207,6 +248,16 @@ a saved session exist, the signed-in projects are simply not created.
   the slug segment.
 - **`load` can be slow.** Navigation waits for `domcontentloaded` and then for specific elements.
 - **OneTrust cookie banner** is dismissed in `BasePage.goto()`.
+- **API calls need a browser.** The CDN returns 403 to non-browser HTTP clients, so feed requests
+  run as `fetch()` inside a page.
+- **Rate limiting.** Bursts of requests get the IP blocked ("Access Denied") for a while, which is
+  why the link crawl is opt-in and workers are kept low.
+- **The grid shows 24 families at a time.** The feed returns 25; the 25th card (Wheel
+  Tractor-Scrapers) is rendered but hidden.
+- **Known defect (22 Oct 2026):** `/en_US/products/new/equipment/asphalt-pavers.html` answers
+  `301` redirecting to itself (`ERR_TOO_MANY_REDIRECTS`). Tracked in `tests/api/catalogue-feed.spec.ts`
+  with `test.fail()`, so the suite stays green and flags it when it is fixed.
 
-Tested with Playwright 1.49, playwright-bdd 8.4, Node 24, Windows 11: 20/20 passing headless
-(8 public specs + 9 BDD scenarios + Cat ID sign-in setup + 2 signed-in tests).
+Tested with Playwright 1.49, playwright-bdd 8.4, Node 24, Windows 11: 64 passing headless, 1 skipped
+(8 public specs, 6 feed API tests incl. 1 known-defect check, 9 mocked-feed tests, 30 RBAC tests,
+9 BDD scenarios, Cat ID sign-in setup, 2 signed-in tests; the link crawl is opt-in).

@@ -1,10 +1,13 @@
 {
   "name": "cat-playwright-demo",
   "version": "1.0.0",
-  "description": "Playwright + TypeScript sample: Page Object Model, fixtures and Cat ID authentication against cat.com",
+  "description": "Playwright + TypeScript sample: Page Object Model, fixtures, BDD, API contract, network mocking, RBAC and Cat ID authentication against cat.com",
   "scripts": {
     "test": "bddgen && playwright test",
     "test:public": "playwright test --project=public",
+    "test:api": "playwright test --project=api",
+    "test:mocked": "playwright test --project=mocked",
+    "test:rbac": "playwright test --project=rbac",
     "test:bdd": "bddgen && playwright test --project=bdd",
     "test:auth": "playwright test --project=authenticated",
     "test:headed": "bddgen && playwright test --project=public --project=bdd --headed --workers=1",

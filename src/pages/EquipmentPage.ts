@@ -28,6 +28,16 @@ export class EquipmentPage extends BasePage {
     await this.waitForCatalogue();
   }
 
+  /** Open the page without waiting for cards - for tests where the feed is empty or failing. */
+  async gotoWithoutCatalogue(): Promise<void> {
+    await super.goto();
+  }
+
+  /** Card titles in display order, including cards hidden beyond the first page. */
+  get cardTitles(): Locator {
+    return this.catalogue.locator('a.card-title');
+  }
+
   /**
    * Cards don't share one URL shape: most are /equipment/<slug>.html but some
    * (e.g. motor graders) are /content/catdotcom/.../equipment/<slug>/<slug>.html.

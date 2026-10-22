@@ -47,6 +47,23 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
     {
+      // Contract tests on cat.com's catalogue JSON feed.
+      name: 'api',
+      testMatch: /api\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+    {
+      // Real equipment page with its catalogue feed intercepted (page.route).
+      name: 'mocked',
+      testMatch: /mocked\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+    {
+      // REST + role-based access tests against the local mock API (no browser, no cat.com).
+      name: 'rbac',
+      testMatch: /rbac\/.*\.spec\.ts/,
+    },
+    {
       name: 'bdd',
       testDir: bddTestDir,
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },

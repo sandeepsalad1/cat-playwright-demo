@@ -4,6 +4,8 @@ import { EquipmentPage } from '../pages/EquipmentPage';
 import { SignInPage } from '../pages/SignInPage';
 import { MyAccountPage } from '../pages/MyAccountPage';
 import { financingPage, merchandisePage, type SimplePage } from '../pages/SimplePage';
+import { CatalogueFeedClient } from '../api/catalogueFeed';
+import { CatalogueMock } from '../mocks/catalogueMock';
 
 export type PageFixtures = {
   homePage: HomePage;
@@ -12,6 +14,8 @@ export type PageFixtures = {
   merchandise: SimplePage;
   signInPage: SignInPage;
   myAccountPage: MyAccountPage;
+  catalogueFeed: CatalogueFeedClient;
+  catalogueMock: CatalogueMock;
 };
 
 /**
@@ -25,4 +29,7 @@ export const pageFixtures: Fixtures<PageFixtures, {}, PlaywrightTestArgs> = {
   merchandise: async ({ page }, use) => use(merchandisePage(page)),
   signInPage: async ({ page }, use) => use(new SignInPage(page)),
   myAccountPage: async ({ page }, use) => use(new MyAccountPage(page)),
+  // API client for the catalogue feed; opens cat.com first so requests run in-page.
+  catalogueFeed: async ({ page }, use) => use(await new CatalogueFeedClient(page).open()),
+  catalogueMock: async ({ page }, use) => use(new CatalogueMock(page)),
 };
