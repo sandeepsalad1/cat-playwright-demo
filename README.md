@@ -1,5 +1,7 @@
 # cat.com Playwright demo
 
+[![Playwright tests](https://github.com/sandeepsalad1/cat-playwright-demo/actions/workflows/playwright.yml/badge.svg)](https://github.com/sandeepsalad1/cat-playwright-demo/actions/workflows/playwright.yml)
+
 A small Playwright + TypeScript suite against the public Caterpillar website (www.cat.com):
 **Page Object Model**, **custom fixtures**, a **Cucumber/BDD** layer, **API contract tests** on the
 JSON feed behind the equipment catalogue, **network mocking** of that feed, **REST / role-based
@@ -221,7 +223,24 @@ Use this if your account has MFA, a one-time code or a captcha.
 Never share `.auth/user.json` - anyone holding it is signed in as you. If neither credentials nor
 a saved session exist, the signed-in projects are simply not created.
 
-### 7. Troubleshooting
+### 7. Continuous integration (GitHub Actions)
+
+`.github/workflows/playwright.yml` runs on every push to `master`, on pull requests, nightly
+(02:00 Brisbane) and on demand (**Actions -> Playwright tests -> Run workflow**). Two jobs:
+
+| Job | What it runs |
+| --- | --- |
+| Typecheck + RBAC (mock API) | `tsc` and the `rbac` project - no browser, no cat.com, ~1 minute |
+| cat.com UI, API, mocked and BDD | installs Chromium, then the `public`, `api`, `mocked` and `bdd` projects against www.cat.com; then the signed-in tests if credentials are configured |
+
+The HTML report, plus traces, screenshots and videos of failures, are uploaded as artifacts on every
+run (open the run -> **Artifacts**).
+
+**Signed-in tests in CI** run only when the repository has two secrets, `CAT_USERNAME` and
+`CAT_PASSWORD` (**Settings -> Secrets and variables -> Actions -> New repository secret**). Without
+them the step is skipped. Use a test account, not a personal one.
+
+### 8. Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
