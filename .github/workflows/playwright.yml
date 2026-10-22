@@ -1,0 +1,72 @@
+name: Playwright tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Nightly at 02:00 Brisbane time (16:00 UTC) - catches changes on cat.com.
+    - cron: '0 16 * * *'
+
+concurrency:
+  group: playwright-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast, deterministic: type check + REST/RBAC tests on the local mock API. No browser, no cat.com.
+  rbac:
+    name: Typecheck + RBAC (mock API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx playwright test --project=rbac
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: report-rbac
+          path: playwright-report/
+          retention-days: 14
+
+  # UI, API contract, mocked-feed and BDD tests against the live www.cat.com.
+  cat-com:
+    name: cat.com UI, API, mocked and BDD
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_CAT_CREDENTIALS: ${{ secrets.CAT_USERNAME != '' && secrets.CAT_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Public, API, mocked and BDD tests
+        run: npx bddgen && npx playwright test --project=public --project=api --project=mocked --project=bdd
+      - name: Signed-in tests (only when CAT_USERNAME / CAT_PASSWORD secrets are set)
+        if: ${{ !cancelled() && env.HAS_CAT_CREDENTIALS == 'true' }}
+        env:
+          CAT_USERNAME: ${{ secrets.CAT_USERNAME }}
+          CAT_PASSWORD: ${{ secrets.CAT_PASSWORD }}
+          # Keep the first step's report; write this one alongside it.
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/authenticated
+          PLAYWRIGHT_HTML_REPORT: playwright-report/authenticated
+        run: npx playwright test --project=setup --project=authenticated
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: report-cat-com
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
