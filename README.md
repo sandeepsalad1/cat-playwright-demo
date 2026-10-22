@@ -54,26 +54,129 @@ features/
 playwright.config.ts            # projects: public, bdd, setup -> authenticated
 ```
 
-## Running
+## How to run the tests
+
+### 1. Prerequisites
+
+- Node.js 18 or later (tested on Node 24)
+- Internet access to www.cat.com
+
+### 2. First-time setup
+
+Run these once, from the project folder:
 
 ```bash
-npm install
-npx playwright install chromium
-npm run test:public        # public navigation (no login needed)
-npm run test:bdd           # Gherkin scenarios
-npm run test:headed        # public + BDD with a visible browser, one at a time
-npm run report             # open the HTML report
+cd cat-playwright-demo
+npm install                          # installs Playwright, playwright-bdd, TypeScript
+npx playwright install chromium      # downloads the Chromium browser
 ```
 
-On Windows PowerShell, if scripts are disabled, use `npm.cmd run test:public` (or run from cmd / Git Bash).
+> **Windows PowerShell:** if you see *"running scripts is disabled on this system"*, use
+> `npm.cmd` / `npx.cmd` instead of `npm` / `npx` in every command below
+> (for example `npm.cmd run test:headed`), or run the commands from Command Prompt or Git Bash.
 
-### Authenticated tests
+### 3. Run the tests
 
-1. Copy `.env.example` to `.env` and add your own Cat ID (CWS ID) and password.
-2. `npm test` - the `setup` project signs in once, then `authenticated` reuses the session.
+| What | Command |
+| --- | --- |
+| Watch the tests in a visible browser (public + BDD, one at a time) | `npm run test:headed` |
+| Public navigation specs only (headless) | `npm run test:public` |
+| Cucumber / BDD scenarios only | `npm run test:bdd` |
+| Everything (public + BDD + authenticated, if set up) | `npm test` |
+| Signed-in tests only | `npm run test:auth` |
+| Type-check the TypeScript | `npm run typecheck` |
+| Open the HTML report from the last run | `npm run report` |
+
+`npm run test:bdd`, `npm test` and `npm run test:headed` run `bddgen` first, which turns the
+`.feature` files into Playwright specs in `.features-gen/`. If you call `npx playwright test`
+directly for the `bdd` project, run `npx bddgen` before it.
+
+### 4. Run a single test or scenario
+
+```bash
+# by test / scenario name (regex match)
+npx playwright test --project=public -g "equipment -> dozers"
+npx bddgen && npx playwright test --project=bdd -g "Sign in hands off to Cat ID"
+
+# one Scenario Outline row (Examples are numbered)
+npx bddgen && npx playwright test --project=bdd -g "Open an equipment family" -g "Example #4"
+
+# one file
+npx playwright test tests/public/navigation.spec.ts
+```
+
+Add `--headed` to watch any of these, or `--workers=1` to run them one at a time.
+
+### 5. Debugging
+
+```bash
+npx playwright test --project=public --debug        # step through with the Playwright Inspector
+npx playwright test --ui                             # UI mode: pick tests, time-travel, watch mode
+npx playwright show-trace test-results/<test-folder>/trace.zip   # open a saved trace
+```
+
+Failed tests keep a screenshot, video and (on retry) a trace under `test-results/`, and the
+HTML report (`npm run report`) links to all of them.
+
+### 6. Authenticated (signed-in) tests
+
+The signed-in tests reuse a saved browser session in `.auth/user.json` (Playwright *storage state*),
+so they don't log in for every test. There are two ways to create that session.
+
+**Option A - automatic sign-in with credentials in `.env`**
+
+1. Copy the example file and add your own Cat ID:
+   ```bash
+   cp .env.example .env        # PowerShell / cmd: copy .env.example .env
+   ```
+   ```
+   CAT_USERNAME=your-cws-id
+   CAT_PASSWORD=your-password
+   ```
+2. Run the signed-in tests. The `setup` project signs in once through Cat ID, saves
+   `.auth/user.json`, then the `authenticated` project reuses it:
+   ```bash
+   npm run test:auth           # add --headed to watch:  npx playwright test --project=authenticated --headed
+   ```
+
+**Option B - sign in by hand and save the session (no password stored)**
+
+Use this if your account has MFA, a one-time code or a captcha.
+
+1. Open a recorder browser that will save the session when you close it:
+   ```bash
+   npx playwright codegen --channel=chromium --save-storage=.auth/user.json https://www.cat.com/en_US.html
+   ```
+2. In that browser: accept the cookie banner, click **Sign In -> Sign In**, enter your CWS ID,
+   **Continue**, your password, **Sign in** (tick *Keep me signed in* if offered).
+3. **Wait until you are back on cat.com and signed in**, then close the window. The session is
+   only saved when the window closes, so closing it on the sign-in page saves a logged-out session.
+4. Run the signed-in tests without the setup step:
+   ```bash
+   npx playwright test --project=authenticated --no-deps --headed
+   ```
+
+**How it is wired**
+
+| File | Role |
+| --- | --- |
+| `src/config/paths.ts` | `STORAGE_STATE` = `.auth/user.json` |
+| `tests/auth.setup.ts` | signs in and calls `page.context().storageState({ path: STORAGE_STATE })` |
+| `playwright.config.ts` | `authenticated` project uses `storageState: STORAGE_STATE`; it depends on `setup` when credentials are set, and runs on its own when only a saved session exists |
 
 `.env` and `.auth/` are git-ignored, so credentials and session cookies are never committed.
-If no credentials are set, the setup and authenticated projects are skipped automatically.
+Never share `.auth/user.json` - anyone holding it is signed in as you. If neither credentials nor
+a saved session exist, the signed-in projects are simply not created.
+
+### 7. Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `running scripts is disabled on this system` | Use `npm.cmd` / `npx.cmd`, or run from cmd / Git Bash |
+| `Project(s) "authenticated" not found` | Create `.env` (Option A) or `.auth/user.json` (Option B) first |
+| Signed-in tests land on `signin.cat.com` | The saved session is missing or expired: delete `.auth/user.json` and create it again |
+| `page.goto` timeouts or `ERR_CONNECTION_RESET` | cat.com bot protection: keep `channel: 'chromium'` and the Desktop Chrome device profile, and avoid running many workers |
+| `Missing step definition` in BDD | Run `npx bddgen` and check the step text matches `features/steps/navigation.steps.ts` |
 
 ## Things worth knowing about cat.com
 

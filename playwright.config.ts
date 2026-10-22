@@ -1,12 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { STORAGE_STATE } from './src/config/paths';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const hasCredentials = Boolean(process.env.CAT_USERNAME && process.env.CAT_PASSWORD);
+// A session saved by hand (e.g. `playwright codegen --save-storage`) also enables
+// the authenticated tests, without needing a password in .env.
+const hasSavedSession = fs.existsSync(STORAGE_STATE);
 
 // Gherkin features are compiled into Playwright specs by `bddgen`.
 const bddTestDir = defineBddConfig({
@@ -47,7 +51,7 @@ export default defineConfig({
       testDir: bddTestDir,
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
-    // Authenticated projects only run when credentials are supplied in .env.
+    // Sign-in setup only exists when credentials are supplied in .env.
     ...(hasCredentials
       ? [
           {
@@ -55,10 +59,15 @@ export default defineConfig({
             testMatch: /auth\.setup\.ts/,
             use: { ...devices['Desktop Chrome'], channel: 'chromium' },
           },
+        ]
+      : []),
+    // Authenticated tests run with credentials (after setup) or with a saved session.
+    ...(hasCredentials || hasSavedSession
+      ? [
           {
             name: 'authenticated',
             testMatch: /authenticated\/.*\.spec\.ts/,
-            dependencies: ['setup'],
+            dependencies: hasCredentials ? ['setup'] : [],
             use: { ...devices['Desktop Chrome'], channel: 'chromium', storageState: STORAGE_STATE },
           },
         ]
