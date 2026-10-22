@@ -28,7 +28,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npx playwright test --project=rbac
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:
           name: report-rbac
@@ -62,7 +62,7 @@ jobs:
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/authenticated
           PLAYWRIGHT_HTML_REPORT: playwright-report/authenticated
         run: npx playwright test --project=setup --project=authenticated
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:
           name: report-cat-com
