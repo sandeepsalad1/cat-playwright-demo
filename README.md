@@ -208,5 +208,5 @@ a saved session exist, the signed-in projects are simply not created.
 - **`load` can be slow.** Navigation waits for `domcontentloaded` and then for specific elements.
 - **OneTrust cookie banner** is dismissed in `BasePage.goto()`.
 
-Tested with Playwright 1.49, playwright-bdd 8.4, Node 24, Windows 11: 17/17 passing headed
-(8 specs + 9 BDD scenarios).
+Tested with Playwright 1.49, playwright-bdd 8.4, Node 24, Windows 11: 20/20 passing headless
+(8 public specs + 9 BDD scenarios + Cat ID sign-in setup + 2 signed-in tests).
