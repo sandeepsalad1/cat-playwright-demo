@@ -74,6 +74,10 @@ npx playwright install chromium      # downloads the Chromium browser
 > **Windows PowerShell:** if you see *"running scripts is disabled on this system"*, use
 > `npm.cmd` / `npx.cmd` instead of `npm` / `npx` in every command below
 > (for example `npm.cmd run test:headed`), or run the commands from Command Prompt or Git Bash.
+>
+> **Windows PowerShell 5.1** does not support `&&`. Where a command below chains with `&&`,
+> use `;` instead, e.g. `npx.cmd bddgen; npx.cmd playwright test --project=bdd`.
+> The `npm run` scripts work unchanged in every shell.
 
 ### 3. Run the tests
 
@@ -173,6 +177,7 @@ a saved session exist, the signed-in projects are simply not created.
 | Symptom | Fix |
 | --- | --- |
 | `running scripts is disabled on this system` | Use `npm.cmd` / `npx.cmd`, or run from cmd / Git Bash |
+| `The token '&&' is not a valid statement separator` | Windows PowerShell 5.1: replace `&&` with `;` |
 | `Project(s) "authenticated" not found` | Create `.env` (Option A) or `.auth/user.json` (Option B) first |
 | Signed-in tests land on `signin.cat.com` | The saved session is missing or expired: delete `.auth/user.json` and create it again |
 | `page.goto` timeouts or `ERR_CONNECTION_RESET` | cat.com bot protection: keep `channel: 'chromium'` and the Desktop Chrome device profile, and avoid running many workers |
