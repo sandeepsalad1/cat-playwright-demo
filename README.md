@@ -91,6 +91,15 @@ npx playwright install chromium      # downloads the Chromium browser
 | Type-check the TypeScript | `npm run typecheck` |
 | Open the HTML report from the last run | `npm run report` |
 
+**Passing Playwright options through an npm script:** put `--` before them, otherwise npm keeps
+the option for itself (and warns `Unknown cli config "--headed"`):
+
+```bash
+npm run test:bdd -- --headed
+npm run test:public -- --headed --workers=1
+npm run test:bdd -- --headed -g "Sign in hands off to Cat ID"
+```
+
 `npm run test:bdd`, `npm test` and `npm run test:headed` run `bddgen` first, which turns the
 `.feature` files into Playwright specs in `.features-gen/`. If you call `npx playwright test`
 directly for the `bdd` project, run `npx bddgen` before it.
@@ -178,6 +187,7 @@ a saved session exist, the signed-in projects are simply not created.
 | --- | --- |
 | `running scripts is disabled on this system` | Use `npm.cmd` / `npx.cmd`, or run from cmd / Git Bash |
 | `The token '&&' is not a valid statement separator` | Windows PowerShell 5.1: replace `&&` with `;` |
+| `npm warn Unknown cli config "--headed"` | Add `--` before Playwright options: `npm run test:bdd -- --headed` |
 | `Project(s) "authenticated" not found` | Create `.env` (Option A) or `.auth/user.json` (Option B) first |
 | Signed-in tests land on `signin.cat.com` | The saved session is missing or expired: delete `.auth/user.json` and create it again |
 | `page.goto` timeouts or `ERR_CONNECTION_RESET` | cat.com bot protection: keep `channel: 'chromium'` and the Desktop Chrome device profile, and avoid running many workers |
