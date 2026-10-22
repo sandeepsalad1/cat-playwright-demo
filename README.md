@@ -14,6 +14,22 @@ Built by Sandeep Saladi as a sample of how I structure UI automation.
 | `tests/auth.setup.ts` | Signs in once through Cat ID and saves the session to `.auth/user.json` |
 | `tests/authenticated/my-account.spec.ts` | Signed-in user can open My Account and its sections; session survives navigation |
 
+### BDD (Gherkin) layer
+
+The same journeys are also written as Cucumber-style feature files and run through
+[playwright-bdd](https://github.com/vitalets/playwright-bdd), so they reuse the page objects,
+fixtures, config, reports and traces instead of a separate Cucumber runner.
+
+| Feature | Scenarios |
+| --- | --- |
+| `features/equipment-navigation.feature` | Open the catalogue; Scenario Outline for 4 equipment families; drill down to a sub-category |
+| `features/site-pages.feature` | Financing and Merchandise pages (Scenario Outline); sign in hands off to Cat ID |
+
+Step definitions live in `features/steps/navigation.steps.ts`. `features/steps/fixtures.ts`
+extends playwright-bdd's `test` with the same `pageFixtures` used by the plain specs, plus a
+small per-scenario state object for the current equipment family. `bddgen` compiles the
+features into `.features-gen/` (git-ignored) before each run.
+
 ## Structure
 
 ```
@@ -26,12 +42,16 @@ src/
   pages/SimplePage.ts           # financing / merchandise
   pages/SignInPage.ts           # two-step Cat ID login
   pages/MyAccountPage.ts
-  fixtures/test.ts              # page objects injected as fixtures
+  fixtures/pageFixtures.ts      # page-object fixtures shared by specs and BDD steps
+  fixtures/test.ts              # Playwright test extended with the fixtures
   data/equipment.ts             # data for the parameterised journeys
   config/paths.ts               # storage state location
 tests/
   public/  authenticated/  auth.setup.ts
-playwright.config.ts            # projects: public, setup -> authenticated
+features/
+  *.feature                     # Gherkin scenarios
+  steps/                        # step definitions + BDD fixtures
+playwright.config.ts            # projects: public, bdd, setup -> authenticated
 ```
 
 ## Running
@@ -40,8 +60,12 @@ playwright.config.ts            # projects: public, setup -> authenticated
 npm install
 npx playwright install chromium
 npm run test:public        # public navigation (no login needed)
+npm run test:bdd           # Gherkin scenarios
+npm run test:headed        # public + BDD with a visible browser, one at a time
 npm run report             # open the HTML report
 ```
+
+On Windows PowerShell, if scripts are disabled, use `npm.cmd run test:public` (or run from cmd / Git Bash).
 
 ### Authenticated tests
 
@@ -66,4 +90,5 @@ If no credentials are set, the setup and authenticated projects are skipped auto
 - **`load` can be slow.** Navigation waits for `domcontentloaded` and then for specific elements.
 - **OneTrust cookie banner** is dismissed in `BasePage.goto()`.
 
-Tested with Playwright 1.49, Node 24, Windows 11.
+Tested with Playwright 1.49, playwright-bdd 8.4, Node 24, Windows 11: 17/17 passing headed
+(8 specs + 9 BDD scenarios).

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { defineBddConfig } from 'playwright-bdd';
 import dotenv from 'dotenv';
 import path from 'path';
 import { STORAGE_STATE } from './src/config/paths';
@@ -6,6 +7,13 @@ import { STORAGE_STATE } from './src/config/paths';
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const hasCredentials = Boolean(process.env.CAT_USERNAME && process.env.CAT_PASSWORD);
+
+// Gherkin features are compiled into Playwright specs by `bddgen`.
+const bddTestDir = defineBddConfig({
+  features: 'features/*.feature',
+  steps: 'features/steps/*.ts',
+  outputDir: '.features-gen',
+});
 
 export default defineConfig({
   testDir: './tests',
@@ -32,6 +40,11 @@ export default defineConfig({
       testMatch: /public\/.*\.spec\.ts/,
       // cat.com's bot protection drops the old headless shell; Chromium's
       // "new headless" mode (channel: 'chromium') behaves like real Chrome.
+      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+    },
+    {
+      name: 'bdd',
+      testDir: bddTestDir,
       use: { ...devices['Desktop Chrome'], channel: 'chromium' },
     },
     // Authenticated projects only run when credentials are supplied in .env.
